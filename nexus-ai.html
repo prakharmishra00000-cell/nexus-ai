@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Nexus AI</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#0a0a12;--bg2:#0f0f1e;--bg3:#14142a;--bg4:#1a1a35;
+  --accent:#6c63ff;--accent2:#a78bfa;--accent3:#38bdf8;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --border:rgba(108,99,255,0.25);--border2:rgba(108,99,255,0.1);
+  --glass:rgba(15,15,30,0.92);
+  --success:#22c55e;--danger:#ef4444;--warn:#f59e0b;
+  --r:12px;--r2:8px;--r3:20px;
+}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.app{display:flex;height:100vh;width:100%;overflow:hidden;position:relative}
+
+/* ─── Animated Background ─── */
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0.07;animation:float 12s ease-in-out infinite}
+.orb1{width:400px;height:400px;background:var(--accent);top:-100px;left:-100px;animation-delay:0s}
+.orb2{width:300px;height:300px;background:var(--accent3);bottom:-80px;right:-80px;animation-delay:4s}
+.orb3{width:200px;height:200px;background:var(--accent2);top:50%;left:50%;animation-delay:8s}
+@keyframes float{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(20px,-20px) scale(1.05)}}
+
+/* ─── Sidebar ─── */
+.sidebar{width:270px;min-width:270px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%;position:relative;z-index:30;transition:transform 0.3s cubic-bezier(.4,0,.2,1)}
+.sidebar.closed{transform:translateX(-100%);position:absolute;top:0;left:0}
+.sidebar-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:29;display:none}
+.sidebar-overlay.show{display:block}
+.sb-header{padding:14px 12px 10px;border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:8px}
+.logo{font-size:17px;font-weight:800;background:linear-gradient(135deg,var(--accent) 0%,var(--accent3) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-0.5px}
+.sb-actions{margin-left:auto;display:flex;gap:5px}
+.sb-btn{background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--r2);padding:5px 8px;cursor:pointer;font-size:13px;transition:all 0.2s;line-height:1}
+.sb-btn:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+
+/* Theme selector */
+.theme-row{padding:9px 12px;border-bottom:1px solid var(--border2)}
+.row-label{font-size:9.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px}
+.theme-options{display:flex;gap:5px}
+.th-btn{flex:1;padding:5px;border-radius:var(--r2);border:1px solid var(--border);background:none;color:var(--text2);font-size:11px;cursor:pointer;transition:all 0.2s;font-weight:500}
+.th-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.th-btn:hover:not(.on){background:var(--bg4);color:var(--text)}
+
+/* Chat list */
+.chat-list{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px}
+.chat-list::-webkit-scrollbar{width:3px}
+.chat-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.ci{padding:8px 9px;border-radius:var(--r2);cursor:pointer;transition:all 0.2s;border:1px solid transparent;display:flex;align-items:center;gap:7px}
+.ci:hover{background:var(--bg3);border-color:var(--border2)}
+.ci.active{background:var(--bg4);border-color:var(--border)}
+.ci-icon{font-size:13px;flex-shrink:0}
+.ci-title{font-size:12.5px;color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ci-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;opacity:0;transition:all 0.2s;border-radius:4px;padding:2px 4px;flex-shrink:0}
+.ci:hover .ci-del{opacity:1}
+.ci-del:hover{color:var(--danger);background:rgba(239,68,68,0.12)}
+
+/* Sidebar footer */
+.sb-footer{padding:10px 12px;border-top:1px solid var(--border2);font-size:10.5px;color:var(--text3);line-height:1.6}
+
+/* ─── Main ─── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;position:relative;z-index:1}
+
+/* Topbar */
+.topbar{padding:10px 12px;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--border2);display:flex;align-items:center;gap:9px;flex-shrink:0;z-index:10}
+.menu-btn{background:none;border:none;color:var(--text2);font-size:20px;cursor:pointer;padding:3px;border-radius:6px;transition:color 0.2s;line-height:1;flex-shrink:0}
+.menu-btn:hover{color:var(--accent)}
+.topbar-title{font-size:13.5px;font-weight:600;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.live-badge{display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--success);flex-shrink:0}
+.live-dot{width:6px;height:6px;background:var(--success);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
+
+/* Persona + Feature bar */
+.ctrl-bar{padding:7px 10px;border-bottom:1px solid var(--border2);background:var(--bg2);display:flex;align-items:center;gap:5px;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.ctrl-bar::-webkit-scrollbar{display:none}
+.p-btn{padding:5px 10px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text3);font-size:11px;cursor:pointer;transition:all 0.2s;white-space:nowrap;font-weight:500;flex-shrink:0}
+.p-btn.on{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;box-shadow:0 2px 10px rgba(108,99,255,0.35)}
+.p-btn:hover:not(.on){background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.bar-sep{width:1px;height:18px;background:var(--border2);flex-shrink:0;margin:0 2px}
+.f-btn{padding:5px 9px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text3);font-size:10.5px;cursor:pointer;transition:all 0.2s;white-space:nowrap;font-weight:600;letter-spacing:0.2px;flex-shrink:0}
+.f-btn:hover{background:rgba(108,99,255,0.12);color:var(--accent);border-color:var(--accent)}
+.f-btn.on{background:rgba(108,99,255,0.18);color:var(--accent);border-color:var(--accent)}
+.f-btn.matrix-f{color:#00d455;border-color:rgba(0,255,100,0.3)}
+.f-btn.matrix-f:hover,.f-btn.matrix-f.on{background:rgba(0,255,100,0.1);color:#00ff64;border-color:#00ff64}
+.f-btn.opt-f{color:var(--accent3);border-color:rgba(56,189,248,0.3)}
+.f-btn.opt-f:hover,.f-btn.opt-f.on{background:rgba(56,189,248,0.1);border-color:var(--accent3)}
+
+/* ─── Messages ─── */
+.msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:14px;scroll-behavior:smooth}
+.msgs::-webkit-scrollbar{width:3px}
+.msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+/* Welcome screen */
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:20px;text-align:center;gap:12px;min-height:300px}
+.w-logo{font-size:40px;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;letter-spacing:-2px}
+.w-tagline{font-size:11px;font-weight:600;letter-spacing:2px;color:var(--accent2);text-transform:uppercase}
+.w-desc{font-size:12.5px;color:var(--text2);max-width:280px;line-height:1.65}
+.w-chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-width:320px}
+.w-chip{padding:6px 11px;border-radius:20px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-size:11.5px;cursor:pointer;transition:all 0.2s;line-height:1.4}
+.w-chip:hover{background:var(--bg4);color:var(--text);border-color:var(--accent);transform:translateY(-1px)}
+
+/* Messages */
+.msg{display:flex;gap:9px;animation:fadeUp 0.3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.msg.user{flex-direction:row-reverse}
+.m-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+.msg.bot .m-av{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.msg.user .m-av{background:linear-gradient(135deg,var(--accent3),#0284c7)}
+.m-bubble{max-width:82%;padding:10px 13px;border-radius:var(--r);font-size:13.5px;line-height:1.65;position:relative}
+.msg.bot .m-bubble{background:var(--bg3);border:1px solid var(--border2);color:var(--text);border-top-left-radius:3px}
+.msg.user .m-bubble{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-top-right-radius:3px}
+.msg.matrix-msg .m-bubble{background:#000d00;border:1px solid rgba(0,255,100,0.3);color:#00ff64;font-family:'Courier New',monospace;font-size:12px;text-shadow:0 0 6px rgba(0,255,100,0.4)}
+.m-time{font-size:9.5px;color:var(--text3);margin-top:5px}
+.msg.user .m-time{text-align:right;color:rgba(255,255,255,0.55)}
+.m-img{max-width:100%;max-height:200px;border-radius:8px;margin-top:7px;display:block}
+
+/* Sources */
+.sources{margin-top:9px;display:flex;flex-direction:column;gap:4px}
+.src-label{font-size:9.5px;color:var(--text3);margin-bottom:2px}
+.src-link{display:flex;align-items:center;gap:6px;padding:5px 9px;background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);font-size:11px;color:var(--accent3);cursor:pointer;transition:all 0.2s;text-decoration:none;overflow:hidden}
+.src-link:hover{background:rgba(56,189,248,0.1);border-color:var(--accent3)}
+.src-link span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Typing indicator */
+.typing-wrap{display:flex;gap:5px;align-items:center;padding:2px 0}
+.typing-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:typeBlink 1.4s infinite}
+.typing-dot:nth-child(2){animation-delay:.2s}
+.typing-dot:nth-child(3){animation-delay:.4s}
+@keyframes typeBlink{0%,80%,100%{opacity:.25;transform:scale(.85)}40%{opacity:1;transform:scale(1)}}
+
+/* Mind map */
+.mindmap-card{background:var(--bg4);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-top:9px;overflow-x:auto}
+.mindmap-card svg{min-width:300px;max-width:100%;display:block}
+
+/* Code block inside messages */
+.code-block{background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin:6px 0;overflow-x:auto;font-family:'Courier New',monospace;font-size:12px;color:#a5f3fc;white-space:pre;line-height:1.5}
+.inline-code{background:rgba(0,0,0,0.35);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:12px;color:#a5f3fc}
+
+/* ─── Input area ─── */
+.input-area{padding:8px 10px 12px;background:var(--glass);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--border2);flex-shrink:0}
+.input-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);transition:border-color 0.2s,box-shadow 0.2s;overflow:hidden}
+.input-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,0.1)}
+.input-row{display:flex;align-items:flex-end}
+.prompt-input{flex:1;background:none;border:none;color:var(--text);padding:11px 11px;font-size:14px;resize:none;min-height:46px;max-height:120px;font-family:inherit;line-height:1.55;outline:none}
+.prompt-input::placeholder{color:var(--text3)}
+.input-actions{display:flex;align-items:flex-end;gap:4px;padding:7px 8px}
+.act{width:34px;height:34px;border-radius:var(--r2);border:1px solid var(--border);background:none;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all 0.2s;flex-shrink:0;line-height:1}
+.act:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.send{width:36px;height:36px;border-radius:var(--r2);border:none;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:all 0.2s;flex-shrink:0}
+.send:hover{transform:scale(1.07);box-shadow:0 4px 16px rgba(108,99,255,0.45)}
+.send:active{transform:scale(0.95)}
+.send:disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none}
+
+/* Bottom toolbar */
+.bottom-tools{display:flex;align-items:center;gap:5px;padding:6px 4px 0;flex-wrap:wrap}
+.tool-tag{padding:4px 9px;border-radius:20px;border:1px solid var(--border);background:none;color:var(--text3);font-size:11px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:4px;white-space:nowrap;font-weight:500}
+.tool-tag:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.tool-tag.on{background:rgba(108,99,255,0.12);color:var(--accent);border-color:var(--accent)}
+.tool-tag.erase-tag{color:var(--danger);border-color:rgba(239,68,68,0.25)}
+.tool-tag.erase-tag:hover{background:rgba(239,68,68,0.1);border-color:var(--danger)}
+.prompt-counter{margin-left:auto;font-size:10px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+
+/* Attach preview */
+.attach-preview{display:none;padding:6px 8px;border-top:1px solid var(--border2);flex-wrap:wrap;align-items:center;gap:7px}
+.attach-preview.show{display:flex}
+.attach-chip{background:var(--bg4);border:1px solid var(--border);border-radius:var(--r2);padding:4px 9px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:5px}
+.attach-rm{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:1px 3px;transition:color 0.2s}
+.attach-rm:hover{color:var(--danger)}
+
+/* ─── Modals ─── */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(5px);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:18px;width:100%;max-width:330px;animation:slideUp 0.25s ease}
+@keyframes slideUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{font-size:14.5px;font-weight:600;margin-bottom:13px;display:flex;align-items:center;gap:7px}
+.modal-btns{display:flex;gap:7px;margin-top:15px;flex-wrap:wrap}
+.mod-btn{flex:1;padding:9px;border-radius:var(--r2);border:1px solid var(--border);background:none;color:var(--text);font-size:13px;cursor:pointer;transition:all 0.2s;font-weight:500;display:flex;align-items:center;justify-content:center;gap:6px;min-width:80px}
+.mod-btn:hover{background:var(--bg4);border-color:var(--accent)}
+.mod-btn.danger{border-color:rgba(239,68,68,0.3);color:var(--danger)}
+.mod-btn.danger:hover{background:rgba(239,68,68,0.1)}
+
+/* Toast */
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(12px);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:8px 15px;font-size:12.5px;color:var(--text);z-index:300;opacity:0;pointer-events:none;transition:all 0.3s;white-space:nowrap;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Hidden inputs */
+#camInput,#fileInput{display:none}
+
+/* ─── THEMES ─── */
+.t-matrix{--bg:#000800;--bg2:#001000;--bg3:#001800;--bg4:#002200;--accent:#00e060;--accent2:#00c050;--accent3:#00e5e5;--text:#80ff80;--text2:#50a050;--text3:#306030;--border:rgba(0,200,80,0.25);--border2:rgba(0,200,80,0.1);--glass:rgba(0,8,0,0.92)}
+.t-matrix .logo,.t-matrix .topbar-title{font-family:'Courier New',monospace}
+.t-light{--bg:#f1f5fb;--bg2:#fff;--bg3:#f5f7fc;--bg4:#eaedfa;--accent:#4f46e5;--accent2:#7c3aed;--accent3:#0284c7;--text:#1e1b4b;--text2:#3730a3;--text3:#6366f1;--border:rgba(79,70,229,0.2);--border2:rgba(79,70,229,0.08);--glass:rgba(255,255,255,0.93)}
+.t-light .msg.bot .m-bubble{background:#fff}
+.t-light .input-box{background:#fff}
+
+/* ─── Responsive ─── */
+@media(max-width:640px){
+  .sidebar{width:82vw;position:absolute;top:0;left:0;height:100%;z-index:31;box-shadow:6px 0 30px rgba(0,0,0,0.5)}
+  .sidebar.closed{transform:translateX(-100%)}
+  .m-bubble{max-width:90%}
+  .topbar-title{font-size:12.5px}
+}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div></div>
+
+<div class="app" id="APP">
+  <!-- Sidebar backdrop -->
+  <div class="sidebar-overlay" id="sbOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ═══ SIDEBAR ═══ -->
+  <div class="sidebar" id="SIDEBAR">
+    <div class="sb-header">
+      <span class="logo">⬡ NEXUS AI</span>
+      <div class="sb-actions">
+        <button class="sb-btn" onclick="newChat()" title="New chat">＋</button>
+      </div>
+    </div>
+
+    <!-- Theme selector -->
+    <div class="theme-row">
+      <div class="row-label">Interface Theme</div>
+      <div class="theme-options">
+        <button class="th-btn on" id="th0" onclick="setTheme('dark',0)">Dark</button>
+        <button class="th-btn" id="th1" onclick="setTheme('matrix',1)" style="color:#00c050">Matrix</button>
+        <button class="th-btn" id="th2" onclick="setTheme('light',2)">Light</button>
+      </div>
+    </div>
+
+    <!-- Chat list -->
+    <div class="chat-list" id="chatList">
+      <div style="text-align:center;color:var(--text3);font-size:12px;padding:20px 10px">No chats yet.<br>Start a conversation below.</div>
+    </div>
+
+    <div class="sb-footer">
+      🔑 9 API keys · auto-rotates on limit<br>
+      🌐 Live web search powered<br>
+      💾 Chats saved locally on device<br>
+      🔒 Private — only visible to you
+    </div>
+  </div>
+
+  <!-- ═══ MAIN ═══ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <button class="menu-btn" onclick="toggleSidebar()">☰</button>
+      <span class="topbar-title" id="topTitle">Nexus AI</span>
+      <div class="live-badge"><div class="live-dot"></div>Live</div>
+    </div>
+
+    <!-- Control bar: Personas + Features -->
+    <div class="ctrl-bar">
+      <button class="p-btn on" id="pb0" onclick="setPersona('standard',0)">🤖 Standard</button>
+      <button class="p-btn" id="pb1" onclick="setPersona('architect',1)">🏗️ Architect</button>
+      <button class="p-btn" id="pb2" onclick="setPersona('analyst',2)">📊 Analyst</button>
+      <div class="bar-sep"></div>
+      <button class="f-btn matrix-f" id="fMatrix" onclick="toggleFeat('matrix')">⬡ MATRIX</button>
+      <button class="f-btn opt-f" id="fOptimize" onclick="toggleFeat('optimize')">⚡ OPTIMIZE</button>
+      <button class="f-btn" id="fMindmap" onclick="toggleFeat('mindmap')">🗺️ MINDMAP</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="msgs" id="MSGS">
+      <!-- Welcome screen injected by JS -->
+    </div>
+
+    <!-- Attach preview -->
+    <div class="attach-preview" id="attachPreview">
+      <!-- populated by JS -->
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <div class="input-box">
+        <div class="input-row">
+          <textarea class="prompt-input" id="promptTA" placeholder="Ask anything — facts, code, analysis, creative, Hinglish..." rows="1"
+            onkeydown="onKey(event)" oninput="growTA(this)"></textarea>
+          <div class="input-actions">
+            <button class="act" id="voiceBtn" onclick="toggleVoice()" title="Voice input">🎙️</button>
+            <button class="act" onclick="openAttachModal()" title="Attach image / file">＋</button>
+            <button class="send" id="sendBtn" onclick="send()">➤</button>
+          </div>
+        </div>
+        <div class="bottom-tools">
+          <button class="tool-tag on" id="wsTag" onclick="toggleTag('ws')">🌐 Web</button>
+          <button class="tool-tag" id="codeTag" onclick="toggleTag('code')">💻 Code</button>
+          <button class="tool-tag erase-tag" onclick="eraseMemory()">🗑️ Erase</button>
+          <span class="prompt-counter" id="pCount">0 / 9000</span>
+        </div>
+        <div class="attach-preview" id="attachPreview"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Attach modal -->
+<div class="overlay" id="modalAttach">
+  <div class="modal">
+    <div class="modal-title">📎 Add Image or File</div>
+    <div class="modal-btns">
+      <button class="mod-btn" onclick="useCamera()">📷 Camera</button>
+      <button class="mod-btn" onclick="browseFiles()">📁 Browse</button>
+      <button class="mod-btn" onclick="closeModal('modalAttach')">✕ Close</button>
+    </div>
+    <input type="file" id="camInput" accept="image/*" capture="environment" onchange="handleFile(this)">
+    <input type="file" id="fileInput" accept="image/*,application/pdf,.txt,.csv,.json,.md,.doc,.docx,.xls,.xlsx,.ppt,.pptx" onchange="handleFile(this)">
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="TOAST"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  NEXUS AI — Full Featured Bot
+// ═══════════════════════════════════════════════════
+
+/* ── API Keys (9 keys, auto-rotates on quota) ── */
+const GEMINI_KEYS = [
+  'AIzaSyCBbbSXKajSE6pMVXYlXvOuQpJlKC__bU4',
+  'AIzaSyC7FdAcFRE-apjFDhL4HG7W0lE8FXZL97g',
+  'AIzaSyCtUlRpq0N2q1_E7bS8hVnfI0a2V-3m55E',
+  'AIzaSyDFr1E7XmRqKZe8iVWlA3zHKw5p2TuPBf0',
+  'AIzaSyA9nH2oXpK1_LvRdTmB8WcFQzJsG0e4Vk6',
+  'AIzaSyBqZ3jKx8mPwN0cYhEA5TiFvRlD1s2Gu9M',
+  'AIzaSyCmN7wR4t5oXkLp2HqAsEBzJuIv6Fd8gY0',
+  'AIzaSyDkA2eQ9nR7cBs0JpWm3FxTuHv1Yl4Zi8N',
+  'AIzaSyE1fV3hX2qL8mNr5KsOa7BpCdJw9Yt0Ug4'
+];
+// NOTE: Replace the above with your actual 9 Gemini API keys from different Google accounts.
+
+const MODEL = 'gemini-2.0-flash';
+let keyIdx = parseInt(localStorage.getItem('nex_kidx') || '0');
+
+/* ── App State ── */
+const S = {
+  currentChat: null,
+  persona: 'standard',
+  matrix: false,
+  optimize: false,
+  mindmap: false,
+  webSearch: true,
+  codeMode: false,
+  busy: false,
+  attachData: null,   // base64 image or null
+  attachText: null,   // text file content
+  attachName: '',
+  pCount: parseInt(localStorage.getItem('nex_pc') || '0'),
+  lastReset: localStorage.getItem('nex_pr') || new Date().toDateString()
+};
+
+// Daily reset
+if (S.lastReset !== new Date().toDateString()) {
+  S.pCount = 0; keyIdx = 0;
+  localStorage.setItem('nex_pc', '0');
+  localStorage.setItem('nex_kidx', '0');
+  localStorage.setItem('nex_pr', new Date().toDateString());
+}
+
+/* ── Chat storage helpers ── */
+function loadChats() {
+  try { return JSON.parse(localStorage.getItem('nex_chats') || '{}'); } catch { return {}; }
+}
+function saveChats(chats) {
+  localStorage.setItem('nex_chats', JSON.stringify(chats));
+}
+function getChats() { return loadChats(); }
+function getChat(id) { return getChats()[id] || null; }
+function getChatMsgs(id) { const c = getChat(id); return c ? c.messages || [] : []; }
+
+/* ── Chat Management ── */
+function newChat() {
+  const id = 'c_' + Date.now();
+  const chats = getChats();
+  chats[id] = { title: 'New Chat', messages: [], created: Date.now() };
+  saveChats(chats);
+  S.currentChat = id;
+  renderSidebar();
+  renderMsgs();
+  document.getElementById('topTitle').textContent = 'New Chat';
+  if (window.innerWidth <= 640) closeSidebar();
+}
+
+function selectChat(id) {
+  S.currentChat = id;
+  const c = getChat(id);
+  document.getElementById('topTitle').textContent = c ? c.title : 'Chat';
+  renderSidebar();
+  renderMsgs();
+  if (window.innerWidth <= 640) closeSidebar();
+}
+
+function deleteChat(id, e) {
+  e.stopPropagation();
+  const chats = getChats();
+  delete chats[id];
+  saveChats(chats);
+  if (S.currentChat === id) {
+    const keys = Object.keys(chats);
+    S.currentChat = keys.length ? keys[keys.length - 1] : null;
+    if (S.currentChat) {
+      document.getElementById('topTitle').textContent = chats[S.currentChat]?.title || 'Chat';
+    } else {
+      document.getElementById('topTitle').textContent = 'Nexus AI';
+    }
+  }
+  renderSidebar();
+  renderMsgs();
+}
+
+/* ── Sidebar rendering ── */
+function renderSidebar() {
+  const chats = getChats();
+  const keys = Object.keys(chats).sort((a, b) => chats[b].created - chats[a].created);
+  const el = document.getElementById('chatList');
+  if (!keys.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--text3);font-size:12px;padding:20px 10px">No chats yet.<br>Start a conversation below.</div>';
+    return;
+  }
+  el.innerHTML = keys.map(id => `
+    <div class="ci${S.currentChat === id ? ' active' : ''}" onclick="selectChat('${id}')">
+      <span class="ci-icon">💬</span>
+      <span class="ci-title">${esc(chats[id].title || 'Chat')}</span>
+      <button class="ci-del" onclick="deleteChat('${id}',event)" title="Delete">✕</button>
+    </div>
+  `).join('');
+}
+
+/* ── Message rendering ── */
+function renderMsgs() {
+  const el = document.getElementById('MSGS');
+  if (!S.currentChat) {
+    el.innerHTML = welcomeHTML();
+    return;
+  }
+  const msgs = getChatMsgs(S.currentChat);
+  if (!msgs.length) {
+    el.innerHTML = welcomeHTML();
+    return;
+  }
+  el.innerHTML = msgs.map(m => msgHTML(m)).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+function welcomeHTML() {
+  return `<div class="welcome">
+    <div class="w-logo">NEXUS</div>
+    <div class="w-tagline">Advanced AI System v3</div>
+    <div class="w-desc">Real-time web search • 9 personas • Voice input • Image analysis • Mind maps • Code generation • Hinglish ready</div>
+    <div class="w-chips">
+      <div class="w-chip" onclick="setPrompt('Explain quantum entanglement in simple terms')">⚛️ Quantum Physics</div>
+      <div class="w-chip" onclick="setPrompt('Write a complete Python Flask REST API with authentication')">🐍 Python API</div>
+      <div class="w-chip" onclick="setPrompt('Analyse global AI industry trends in 2025 with statistics')">📊 AI Trends 2025</div>
+      <div class="w-chip" onclick="setPrompt('Kya aap mujhe cryptocurrency ke baare mein detail se bata sakte ho?')">🇮🇳 Hinglish</div>
+      <div class="w-chip" onclick="setPrompt('Create a mind map of neural networks and deep learning')">🗺️ Mind Map</div>
+      <div class="w-chip" onclick="setPrompt('Matrix simulation: Explain consciousness from another dimension')">⬡ Matrix</div>
+      <div class="w-chip" onclick="setPrompt('Design a scalable microservices architecture for an e-commerce app')">🏗️ Architecture</div>
+      <div class="w-chip" onclick="setPrompt('What are the latest developments in space exploration 2025?')">🚀 Space 2025</div>
+    </div>
+  </div>`;
+}
+
+function msgHTML(m) {
+  const isUser = m.role === 'user';
+  const isMatrix = m.matrix;
+  const t = new Date(m.ts || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  let srcHTML = '';
+  if (m.sources && m.sources.length) {
+    srcHTML = `<div class="sources"><div class="src-label">📚 Sources:</div>` +
+      m.sources.map(s => `<a class="src-link" href="${esc(s.url)}" target="_blank" rel="noopener"><span>🔗 ${esc(s.title || s.url)}</span></a>`).join('') + '</div>';
+  }
+  let extra = '';
+  if (m.imageData) extra += `<img class="m-img" src="${m.imageData}" alt="attachment">`;
+  if (m.mindmapData) extra += renderMindmap(m.mindmapData);
+
+  const content = `<div>${fmtText(m.content)}</div>${extra}${srcHTML}<div class="m-time">${t}</div>`;
+  return `<div class="msg${isUser ? ' user' : ' bot'}${isMatrix && !isUser ? ' matrix-msg' : ''}">
+    <div class="m-av">${isUser ? 'U' : 'N'}</div>
+    <div class="m-bubble">${content}</div>
+  </div>`;
+}
+
+function fmtText(t) {
+  if (!t) return '';
+  // Fenced code blocks
+  t = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre class="code-block">${esc(code.trim())}</pre>`);
+  // Inline code
+  t = t.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+  // Bold + italic
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Headings
+  t = t.replace(/^### (.+)$/gm, '<div style="font-weight:600;font-size:13px;color:var(--accent2);margin:7px 0 3px">$1</div>');
+  t = t.replace(/^## (.+)$/gm, '<div style="font-weight:700;font-size:14px;color:var(--accent);margin:9px 0 4px">$1</div>');
+  t = t.replace(/^# (.+)$/gm, '<div style="font-weight:700;font-size:15.5px;color:var(--accent);margin:10px 0 5px;border-bottom:1px solid var(--border2);padding-bottom:4px">$1</div>');
+  // Bullet lists
+  t = t.replace(/^[-•*] (.+)$/gm, '<div style="display:flex;gap:6px;margin:1px 0"><span style="color:var(--accent);flex-shrink:0;margin-top:2px">◆</span><span>$1</span></div>');
+  // Numbered lists
+  t = t.replace(/^(\d+)\. (.+)$/gm, '<div style="display:flex;gap:6px;margin:1px 0"><span style="color:var(--accent2);flex-shrink:0;min-width:18px;font-weight:600">$1.</span><span>$2</span></div>');
+  // Blockquote
+  t = t.replace(/^> (.+)$/gm, '<div style="border-left:3px solid var(--accent2);padding:4px 8px;background:rgba(108,99,255,0.07);border-radius:0 6px 6px 0;margin:4px 0;color:var(--text2);font-style:italic">$1</div>');
+  // Horizontal rule
+  t = t.replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border2);margin:8px 0">');
+  // Line breaks
+  t = t.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+  return t;
+}
+
+function renderMindmap(data) {
+  if (!data || !data.center || !data.nodes) return '';
+  const cx = 200, cy = 120, nodeCount = data.nodes.length || 1;
+  const svgH = Math.max(260, nodeCount * 55 + 80);
+  let paths = '';
+  data.nodes.forEach((node, i) => {
+    const angle = (i / nodeCount) * 2 * Math.PI - Math.PI / 2;
+    const nx = cx + 125 * Math.cos(angle);
+    const ny = cy + 95 * Math.sin(angle);
+    paths += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="rgba(108,99,255,0.45)" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <circle cx="${nx}" cy="${ny}" r="32" fill="rgba(108,99,255,0.15)" stroke="rgba(108,99,255,0.4)" stroke-width="1"/>
+      <text x="${nx}" y="${ny-6}" text-anchor="middle" fill="#a78bfa" font-size="9.5" font-weight="600" font-family="-apple-system,sans-serif">${esc(node.label.substring(0,14))}</text>`;
+    (node.children || []).forEach((ch, j) => {
+      const ca = angle + (j - (node.children.length - 1) / 2) * 0.45;
+      const chx = nx + 85 * Math.cos(ca);
+      const chy = ny + 60 * Math.sin(ca);
+      paths += `<line x1="${nx}" y1="${ny}" x2="${chx}" y2="${chy}" stroke="rgba(167,139,250,0.3)" stroke-width="1"/>
+        <rect x="${chx-30}" y="${chy-12}" width="60" height="24" rx="7" fill="rgba(10,10,30,0.75)" stroke="rgba(167,139,250,0.35)" stroke-width="0.5"/>
+        <text x="${chx}" y="${chy+5}" text-anchor="middle" fill="#94a3b8" font-size="8" font-family="-apple-system,sans-serif">${esc(ch.substring(0,12))}</text>`;
+    });
+  });
+  return `<div class="mindmap-card">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:6px">🗺️ Mind Map</div>
+    <svg viewBox="0 0 400 ${svgH}" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="cg" cx="50%" cy="50%"><stop offset="0%" stop-color="#6c63ff"/><stop offset="100%" stop-color="#4338ca"/></radialGradient></defs>
+      <circle cx="${cx}" cy="${cy}" r="50" fill="url(#cg)"/>
+      <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="#fff" font-size="10.5" font-weight="700" font-family="-apple-system,sans-serif">${esc(data.center.substring(0, 18))}</text>
+      <text x="${cx}" y="${cy+8}" text-anchor="middle" fill="rgba(255,255,255,0.75)" font-size="8.5" font-family="-apple-system,sans-serif">core</text>
+      ${paths}
+    </svg>
+  </div>`;
+}
+
+/* ── SEND ── */
+async function send() {
+  const ta = document.getElementById('promptTA');
+  let text = ta.value.trim();
+  if (!text && !S.attachData && !S.attachText) { toast('Type something first'); return; }
+  if (S.busy) { toast('Please wait...'); return; }
+
+  // Auto-optimize short prompts
+  if (S.optimize && text.length < 35) {
+    text = await optimizePrompt(text);
+  }
+
+  // Append document text to prompt if present
+  if (S.attachText && !S.attachData) {
+    text = `${text}\n\n[Document Content]\n${S.attachText.substring(0, 6000)}`;
+  }
+
+  // Init chat if needed
+  if (!S.currentChat) {
+    const id = 'c_' + Date.now();
+    const chats = getChats();
+    chats[id] = { title: text.substring(0, 38) + (text.length > 38 ? '...' : ''), messages: [], created: Date.now() };
+    saveChats(chats);
+    S.currentChat = id;
+    document.getElementById('topTitle').textContent = chats[id].title;
+  }
+
+  // Increment counter
+  S.pCount++;
+  localStorage.setItem('nex_pc', S.pCount);
+  document.getElementById('pCount').textContent = `${S.pCount} / 9000`;
+
+  // Build user message
+  const userMsg = { role: 'user', content: text, ts: Date.now(), imageData: S.attachData || null };
+
+  // Save to storage
+  const chats = getChats();
+  if (!chats[S.currentChat]) chats[S.currentChat] = { title: text.substring(0, 38), messages: [], created: Date.now() };
+  if (chats[S.currentChat].messages.length === 0) {
+    chats[S.currentChat].title = text.substring(0, 40) + (text.length > 40 ? '...' : '');
+    document.getElementById('topTitle').textContent = chats[S.currentChat].title;
+  }
+  chats[S.currentChat].messages.push(userMsg);
+  saveChats(chats);
+
+  // Clear inputs
+  ta.value = ''; growTA(ta); clearAttach();
+  S.busy = true;
+  document.getElementById('sendBtn').disabled = true;
+  renderSidebar();
+  renderMsgs();
+  showTyping();
+
+  try {
+    const history = getChatMsgs(S.currentChat);
+    const resp = await callGemini(history, text);
+    hideTyping();
+
+    const botMsg = {
+      role: 'bot',
+      content: resp.text,
+      sources: resp.sources || [],
+      matrix: S.matrix,
+      mindmapData: S.mindmap ? buildMindmapData(text, resp.text) : null,
+      ts: Date.now()
+    };
+
+    const c2 = getChats();
+    if (c2[S.currentChat]) {
+      c2[S.currentChat].messages.push(botMsg);
+      saveChats(c2);
+    }
+  } catch (err) {
+    hideTyping();
+    const errMsg = {
+      role: 'bot',
+      content: `⚠️ **Error**\n\n${err.message || 'Could not reach AI service.'}\n\nPlease check your internet and try again.`,
+      ts: Date.now()
+    };
+    const c2 = getChats();
+    if (c2[S.currentChat]) { c2[S.currentChat].messages.push(errMsg); saveChats(c2); }
+  }
+
+  S.busy = false;
+  document.getElementById('sendBtn').disabled = false;
+  renderSidebar();
+  renderMsgs();
+}
+
+/* ── Gemini API ── */
+async function callGemini(history, currentText) {
+  const systemPrompt = buildSystemPrompt(currentText);
+  const recentHistory = history.slice(-14);
+
+  const contents = recentHistory.map(m => {
+    if (m.imageData) {
+      return {
+        role: m.role === 'bot' ? 'model' : 'user',
+        parts: [
+          { text: m.content },
+          { inline_data: { mime_type: 'image/jpeg', data: m.imageData.replace(/^data:image\/\w+;base64,/, '') } }
+        ]
+      };
+    }
+    return { role: m.role === 'bot' ? 'model' : 'user', parts: [{ text: m.content }] };
+  });
+
+  const body = {
+    system_instruction: { parts: [{ text: systemPrompt }] },
+    contents,
+    generationConfig: { temperature: 0.72, maxOutputTokens: 2500, topP: 0.95 },
+    tools: [{ google_search: {} }]
+  };
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < GEMINI_KEYS.length; attempt++) {
+    const key = GEMINI_KEYS[keyIdx % GEMINI_KEYS.length];
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+      );
+
+      if (r.status === 429 || r.status === 503) {
+        keyIdx = (keyIdx + 1) % GEMINI_KEYS.length;
+        localStorage.setItem('nex_kidx', keyIdx);
+        lastErr = new Error('Rate limit, switching key');
+        await sleep(300);
+        continue;
+      }
+
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        if (err.error?.status === 'RESOURCE_EXHAUSTED') {
+          keyIdx = (keyIdx + 1) % GEMINI_KEYS.length;
+          localStorage.setItem('nex_kidx', keyIdx);
+          lastErr = new Error('Quota exhausted on this key');
+          await sleep(300);
+          continue;
+        }
+        throw new Error(err.error?.message || `API error ${r.status}`);
+      }
+
+      const data = await r.json();
+      const candidate = data.candidates?.[0];
+      if (!candidate) throw new Error('No response generated');
+
+      let text = '';
+      for (const part of candidate.content?.parts || []) {
+        if (part.text) text += part.text;
+      }
+
+      const sources = [];
+      for (const chunk of candidate.groundingMetadata?.groundingChunks || []) {
+        if (chunk.web) sources.push({ title: chunk.web.title || chunk.web.uri, url: chunk.web.uri });
+      }
+
+      return { text: text || 'No content returned. Please try again.', sources };
+
+    } catch (e) {
+      lastErr = e;
+      if (e.message.includes('fetch') || e.message.includes('network') || e.message.includes('Failed')) {
+        throw new Error('Network error. Please check your internet connection.');
+      }
+      keyIdx = (keyIdx + 1) % GEMINI_KEYS.length;
+      localStorage.setItem('nex_kidx', keyIdx);
+      await sleep(200);
+    }
+  }
+  throw lastErr || new Error('All 9 API keys exhausted today. Please try again tomorrow.');
+}
+
+/* ── System Prompt Builder ── */
+function buildSystemPrompt(currentText) {
+  const isHinglish = detectHinglish(currentText);
+  const personas = {
+    standard: 'You are Nexus AI — an ultra-intelligent, highly helpful assistant. Provide accurate, detailed, engaging, and well-structured responses. You have access to real-time web search. Always cite sources naturally when using web data.',
+    architect: 'You are Nexus AI in ARCHITECT MODE — the master builder and designer. Specialize in creating systems, architectures, frameworks, plans, and complete solutions. Think structurally: provide detailed blueprints, step-by-step constructions, system designs, and build guides. Use diagrams in ASCII or markdown when helpful.',
+    analyst: 'You are Nexus AI in ANALYST MODE — the master data analyst and strategic thinker. Specialize in deep analysis, statistics, trend analysis, pattern recognition, and data-driven insights. Use frameworks like SWOT, PESTEL, root cause analysis. Present findings clearly with evidence-based conclusions and actionable recommendations.'
+  };
+
+  let system = personas[S.persona] || personas.standard;
+
+  if (S.matrix) {
+    system += '\n\nMATRIX SIMULATION MODE: You now speak from a higher-dimensional perspective. Reveal the hidden mathematical and systemic patterns underlying reality. Use philosophical depth, meta-reality framing, and deep pattern-thinking. However ALL information must remain factually accurate and authentic — only the perspective and framing shifts. Occasionally use matrix-style metaphors about seeing the code beneath reality.';
+  }
+
+  if (S.codeMode) {
+    system += '\n\nCODE MODE ACTIVE: For any coding request, provide complete, working, production-ready code with clear comments. Include error handling, best practices, and a brief explanation of how the code works. Support any programming language the user specifies.';
+  }
+
+  if (isHinglish) {
+    system += '\n\nHINGLISH MODE: The user is writing in Hinglish (Hindi + English mix). Please respond naturally in Hinglish as well — mixing Hindi and English conversationally, using Devanagari or Roman script as feels natural. Be warm, casual, and match their linguistic style.';
+  }
+
+  system += `\n\nCORE RULES:
+- Always be accurate and provide real, verified information
+- Use real-time web search results when available and cite sources
+- Handle harmful/illegal/adult requests with a single polite decline then offer an alternative
+- For code: provide complete, runnable, well-commented code
+- Format responses cleanly with markdown for readability
+- Be genuinely insightful, not just generic
+- Match the user's language and tone automatically
+- For legal/financial/medical: provide information but add brief disclaimer to consult professionals
+- Today's date: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+
+  return system;
+}
+
+function detectHinglish(text) {
+  const hindiChars = /[\u0900-\u097F]/;
+  const hindiRoman = /\b(kya|hai|hain|mujhe|aap|karo|bata|nahi|bhi|lekin|aur|par|ke|ki|ko|se|mein|tha|thi|hoga|hogi|yeh|woh|isko|usko|kyunki|toh|phir|kuch|bahut|sab|log)\b/i;
+  return hindiChars.test(text) || hindiRoman.test(text);
+}
+
+/* ── Optimize Prompt ── */
+async function optimizePrompt(text) {
+  const expansions = [
+    [/^(weather|mausam)/i, text + ' today, tomorrow, and weekly forecast with temperature, humidity and conditions'],
+    [/^(code|program|write.*code)/i, text + ' — provide complete, working code with comments and error handling'],
+    [/^(explain|kya hai|what is|what are)/i, text + ' — comprehensive explanation with examples, history and real-world applications'],
+    [/^(how to|kaise|how do)/i, text + ' — complete step-by-step guide with tips and common mistakes to avoid'],
+    [/^(analyse|analyze|analysis)/i, text + ' — detailed analysis with statistics, trends, comparisons and actionable insights'],
+    [/^(create|build|make|design|bana)/i, text + ' — detailed, professional, ready-to-use output'],
+    [/^(list|give me|tell me)/i, text + ' — comprehensive, well-organized list with brief descriptions for each item'],
+    [/python|javascript|react|java|c\+\+/i, text + ' — complete working code with explanation, comments and best practices'],
+  ];
+  for (const [pattern, expanded] of expansions) {
+    if (pattern.test(text)) { toast('⚡ Prompt optimized'); return expanded; }
+  }
+  return text + (text.endsWith('?') ? '' : ' — provide comprehensive, detailed and accurate information');
+}
+
+/* ── Mind Map Data Builder ── */
+function buildMindmapData(prompt, response) {
+  const topicWords = prompt.split(/\s+/).filter(w => w.length > 3).slice(0, 3).join(' ');
+  const sentences = response.split(/[.!?]\s+/).filter(s => s.trim().length > 25).slice(0, 6);
+  const nodes = sentences.slice(0, 6).map(s => {
+    const words = s.trim().split(/\s+/);
+    return {
+      label: words.slice(0, 3).join(' '),
+      children: words.filter(w => w.length > 4).slice(3, 6)
+    };
+  });
+  return { center: topicWords.substring(0, 22) || 'Topic', nodes };
+}
+
+/* ── Typing indicator ── */
+function showTyping() {
+  const el = document.getElementById('MSGS');
+  const d = document.createElement('div');
+  d.id = 'typingInd'; d.className = 'msg bot';
+  d.innerHTML = '<div class="m-av">N</div><div class="m-bubble"><div class="typing-wrap"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div></div>';
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function hideTyping() { const d = document.getElementById('typingInd'); if (d) d.remove(); }
+
+/* ── Voice Input ── */
+let recog = null;
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    toast('Voice not supported in this browser'); return;
+  }
+  if (recog) { recog.stop(); recog = null; document.getElementById('voiceBtn').textContent = '🎙️'; return; }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recog = new SR();
+  recog.continuous = false; recog.interimResults = true;
+  recog.lang = detectHinglish(document.getElementById('promptTA').value) ? 'hi-IN' : 'en-IN';
+  recog.onstart = () => { document.getElementById('voiceBtn').textContent = '🔴'; toast('🎙️ Listening... Speak now'); };
+  recog.onresult = e => {
+    const t = Array.from(e.results).map(r => r[0].transcript).join('');
+    document.getElementById('promptTA').value = t; growTA(document.getElementById('promptTA'));
+  };
+  recog.onend = () => { document.getElementById('voiceBtn').textContent = '🎙️'; recog = null; };
+  recog.onerror = e => { toast('Voice error: ' + e.error); document.getElementById('voiceBtn').textContent = '🎙️'; recog = null; };
+  recog.start();
+}
+
+/* ── Attachments ── */
+function openAttachModal() { document.getElementById('modalAttach').classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function useCamera() { document.getElementById('camInput').click(); closeModal('modalAttach'); }
+function browseFiles() { document.getElementById('fileInput').click(); closeModal('modalAttach'); }
+
+function handleFile(input) {
+  const file = input.files?.[0]; if (!file) return;
+  S.attachName = file.name;
+  const reader = new FileReader();
+  if (file.type.startsWith('image/')) {
+    reader.onload = e => { S.attachData = e.target.result; S.attachText = null; showAttachPreview(); };
+    reader.readAsDataURL(file);
+  } else {
+    reader.onload = e => { S.attachText = e.target.result; S.attachData = null; showAttachPreview(); };
+    reader.readAsText(file);
+  }
+}
+
+function showAttachPreview() {
+  const el = document.getElementById('attachPreview');
+  el.classList.add('show');
+  el.innerHTML = `<div class="attach-chip">${S.attachData ? '🖼️' : '📄'} ${esc(S.attachName)} <button class="attach-rm" onclick="clearAttach()">✕</button></div>` +
+    (S.attachData ? `<img src="${S.attachData}" style="max-height:55px;border-radius:6px;border:1px solid var(--border)" alt="preview">` : '');
+}
+
+function clearAttach() {
+  S.attachData = null; S.attachText = null; S.attachName = '';
+  const el = document.getElementById('attachPreview');
+  el.classList.remove('show'); el.innerHTML = '';
+  document.getElementById('camInput').value = '';
+  document.getElementById('fileInput').value = '';
+}
+
+/* ── Erase Memory ── */
+function eraseMemory() {
+  if (!S.currentChat) { toast('No active chat'); return; }
+  const chats = getChats();
+  const msgs = chats[S.currentChat]?.messages || [];
+  if (msgs.length <= 1) { toast('Nothing to erase'); return; }
+  const last = msgs[msgs.length - 1];
+  chats[S.currentChat].messages = [last];
+  saveChats(chats);
+  renderMsgs();
+  toast('🗑️ Memory erased — latest message kept');
+}
+
+/* ── UI Controls ── */
+function toggleSidebar() {
+  const sb = document.getElementById('SIDEBAR');
+  const ov = document.getElementById('sbOverlay');
+  sb.classList.toggle('closed');
+  if (!sb.classList.contains('closed')) {
+    ov.classList.add('show');
+  } else {
+    ov.classList.remove('show');
+  }
+}
+function closeSidebar() {
+  document.getElementById('SIDEBAR').classList.add('closed');
+  document.getElementById('sbOverlay').classList.remove('show');
+}
+
+function setTheme(name, idx) {
+  document.querySelectorAll('.th-btn').forEach((b, i) => b.classList.toggle('on', i === idx));
+  const app = document.getElementById('APP');
+  app.classList.remove('t-matrix', 't-light');
+  if (name === 'matrix') app.classList.add('t-matrix');
+  if (name === 'light') app.classList.add('t-light');
+  localStorage.setItem('nex_theme', name + ':' + idx);
+}
+
+function setPersona(name, idx) {
+  document.querySelectorAll('.p-btn').forEach((b, i) => b.classList.toggle('on', i === idx));
+  S.persona = name;
+  const names = { standard: 'Standard mode active', architect: '🏗️ Architect mode — I\'ll build anything', analyst: '📊 Analyst mode — deep analysis ready' };
+  toast(names[name] || name);
+}
+
+function toggleFeat(feat) {
+  S[feat] = !S[feat];
+  const ids = { matrix: 'fMatrix', optimize: 'fOptimize', mindmap: 'fMindmap' };
+  document.getElementById(ids[feat])?.classList.toggle('on', S[feat]);
+  const msgs = {
+    matrix: S.matrix ? '⬡ Matrix Simulation ON' : 'Matrix mode OFF',
+    optimize: S.optimize ? '⚡ Auto-optimize ON' : 'Optimize OFF',
+    mindmap: S.mindmap ? '🗺️ Mind Map ON — maps will be generated' : 'Mind Map OFF'
+  };
+  toast(msgs[feat] || feat);
+}
+
+function toggleTag(tag) {
+  if (tag === 'ws') {
+    S.webSearch = !S.webSearch;
+    document.getElementById('wsTag').classList.toggle('on', S.webSearch);
+    toast(S.webSearch ? '🌐 Web search ON' : 'Web search OFF');
+  } else if (tag === 'code') {
+    S.codeMode = !S.codeMode;
+    document.getElementById('codeTag').classList.toggle('on', S.codeMode);
+    document.getElementById('promptTA').placeholder = S.codeMode
+      ? 'Describe the code you need (any language)...'
+      : 'Ask anything — facts, code, analysis, creative, Hinglish...';
+    toast(S.codeMode ? '💻 Code mode ON' : 'Code mode OFF');
+  }
+}
+
+/* ── Utils ── */
+function onKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+function growTA(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function setPrompt(text) { document.getElementById('promptTA').value = text; document.getElementById('promptTA').focus(); }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+let toastTmr;
+function toast(msg) {
+  const t = document.getElementById('TOAST');
+  t.textContent = msg; t.classList.add('show');
+  if (toastTmr) clearTimeout(toastTmr);
+  toastTmr = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ── Init ── */
+function init() {
+  // Mobile: close sidebar by default
+  if (window.innerWidth <= 640) {
+    document.getElementById('SIDEBAR').classList.add('closed');
+  }
+  // Restore theme
+  const saved = localStorage.getItem('nex_theme');
+  if (saved) {
+    const [name, idx] = saved.split(':');
+    setTheme(name, parseInt(idx));
+  }
+  // Load chats and select most recent
+  renderSidebar();
+  const chats = getChats();
+  const keys = Object.keys(chats).sort((a, b) => chats[b].created - chats[a].created);
+  if (keys.length) {
+    S.currentChat = keys[0];
+    document.getElementById('topTitle').textContent = chats[keys[0]]?.title || 'Chat';
+  }
+  renderMsgs();
+  // Update counter display
+  document.getElementById('pCount').textContent = `${S.pCount} / 9000`;
+}
+
+init();
+</script>
+</body>
+</html>
